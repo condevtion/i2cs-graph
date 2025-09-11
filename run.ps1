@@ -13,5 +13,5 @@ if (-Not (Test-Path "$VirtualEnvPath")) {
 }
 
 $env:PYTHONPATH = ".\src"
-& "$Python" -c "import sys; import i2cs_graph; sys.exit(0)" @TrailingArgs
+& "$Python" -c "import sys; from i2cs_graph.cli import main; sys.exit(main())" @TrailingArgs
 Remove-Item Env:\PYTHONPATH
