@@ -4,6 +4,7 @@ import sys
 import argparse
 
 from .error import Error
+from .read import read, ALS_DEFAULT_RESOLUTION
 
 def make_args_parser() -> argparse.ArgumentParser:
     """ Creates an argument parser """
@@ -11,6 +12,10 @@ def make_args_parser() -> argparse.ArgumentParser:
     parser.add_argument('data', type=str, nargs=1,
                         help='file with CSV formatted data from i2cs-test script',
                         metavar='PATH')
+    parser.add_argument('--als-resolution', type=float, default=ALS_DEFAULT_RESOLUTION,
+                        help= 'resolution configured for ambient light sensor during measurements '
+                             f'(default: {ALS_DEFAULT_RESOLUTION})',
+                        metavar='N')
     return parser
 
 def main() -> int:
@@ -18,7 +23,8 @@ def main() -> int:
     args = make_args_parser().parse_args()
 
     try:
-        print(f'args: {args!r}')
+        data = read(args.data[0], args)
+        print(f'Got {len(data[0])} data points')
     except Error as e:
         print(f'{e}. Exiting...', file=sys.stderr)
         return 1
