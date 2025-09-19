@@ -1,3 +1,6 @@
 python-dateutil
 numpy
 matplotlib
+tzdata
+tzlocal
+pytz

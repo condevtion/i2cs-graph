@@ -9,11 +9,10 @@ import i2cs_graph.error
 import i2cs_graph.read
 
 _SETTINGS = argparse.Namespace(als_resolution=i2cs_graph.read.ALS_DEFAULT_RESOLUTION)
-_MIN_COLOR_18 = 1.9073559087978698e-06
+_MIN_COLOR_18 = 0.5/(2**18-1)
+_SECOND = 1/24/60/60
 _DATA_SAMPLE = (
-    (
-        20344.0, 20344.000011574073, 20344.00002314815,
-    ),
+    (20344, 20344 + _SECOND, 20344 + 2*_SECOND),
     i2cs_graph.read.Data(
         i2cs_graph.read.Pressure(
             (1000.0, 1000.0, 1000.0),

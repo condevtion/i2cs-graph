@@ -6,6 +6,7 @@ import time
 
 from .error import Error
 from .read import read, ALS_SENSITIVITY, ALS_DEFAULT_RESOLUTION
+from .scale import prescale
 
 def make_args_parser() -> argparse.ArgumentParser:
     """ Creates an argument parser """
@@ -28,6 +29,8 @@ def main() -> int:
         start = time.monotonic()
         data = read(args.data[0], args)
         print(f'Got {len(data[0])} data points in {time.monotonic() - start:.1f}s')
+
+        prescale(data)
     except Error as e:
         print(f'{e}. Exiting...', file=sys.stderr)
         return 1
