@@ -2,10 +2,11 @@
     large datasets """
 
 import dataclasses
-
 import typing
+import bisect
 
 import numpy
+import matplotlib.axes
 
 from .read import Timestamps, Data, Pressure, RelativeHumidity, AmbientLight
 from .sequencer import span_str, SCALES, Sequencer, skip_seq_item, next_seq_item
@@ -334,3 +335,47 @@ def prescale(data: tuple[Timestamps, Data]) -> DataSet:
         print(f'\t\tpoints per bucket: {len(data[0])/len(columns[0]):.1f}')
 
     return DataSet(data, scaled, make_overview(data))
+
+def _find_scale(data_set: DataSet, left: float, right: float) -> \
+        tuple[Timestamps, ResampledData|Data]:
+    dt = right - left
+    for scale, (ts, data) in reversed(data_set.scaled.items()):
+        if len(ts) >= 10 and dt/scale >= 100:
+            return ts, data
+
+    return data_set.orig
+
+def _find_left(ts: Timestamps, x: float) -> int:
+    i = bisect.bisect_left(ts, x)
+    return i - 1 if i > 0 else i
+
+def _find_right(ts: Timestamps, x: float) -> int:
+    i = bisect.bisect_right(ts, x)
+    return i + 1 if i < len(ts) else i
+
+@dataclasses.dataclass(frozen=True)
+class XLimits:
+    """ Gathers limits information on x axis """
+    left: float
+    right: float
+    start: int
+    end: int
+
+class ScaleSelector: # pylint: disable=too-few-public-methods
+    """ Selects a properly scaled data from the given set on "xlim_changed" event for the connected
+        axes """
+    def __init__(self, data_set: DataSet, transform: typing.Callable):
+        self.__data_set = data_set
+        self.__transform = transform
+
+    def connect(self, axes: matplotlib.axes.Axes):
+        """ Bind the scale selector to given axes """
+        axes.callbacks.connect('xlim_changed', self.__xlim_changed)
+
+    def __xlim_changed(self, axes: matplotlib.axes.Axes):
+        x1, x2 = axes.get_xlim()
+
+        ts, data = _find_scale(self.__data_set, x1, x2)
+        start, end = _find_left(ts, x1), _find_right(ts, x2)
+
+        self.__transform(ts[start:end], data, XLimits(x1, x2, start, end))
