@@ -6,11 +6,10 @@ import tzlocal
 import matplotlib.pyplot
 import matplotlib.axes
 import matplotlib.dates
-import matplotlib.lines
-import matplotlib.collections
+import matplotlib.artist
 
 from .read import Data
-from .scale import DataSet, Timestamps, ResampledData
+from .scale import DataSet, Timestamps, ResampledData, ResampledValue
 from .scale import ScaleSelector, XLimits
 
 @dataclasses.dataclass(frozen=True)
@@ -50,89 +49,107 @@ class _Axes:
         rh.yaxis.set_label_position('left')
         rh.yaxis.set_ticks_position('left')
 
+        al = t.twinx()
+        object.__setattr__(self, "al", al)
+        al.set_ylabel('Illuminance, lux')
+
+        c = t.twinx()
+        object.__setattr__(self, "c", c)
+        c.set_facecolor('w')
+        c.spines['right'].set_position(('outward', 60))
+        c.set_ylabel('Color, %')
+
         t.set_zorder(5)
         p.set_zorder(4)
         rh.set_zorder(3)
+        al.set_zorder(2)
+        c.set_zorder(1)
 
 _T_COLOR = 'tab:orange'
 _P_COLOR = 'tab:purple'
 _RH_COLOR = 'tab:olive'
+_AL_COLOR = 'tab:cyan'
+_IR_COLOR = 'tab:gray'
 
-@dataclasses.dataclass(frozen=True)
-class _Atmosperic:
-    t_line: matplotlib.lines.Line2D
-    t_range: matplotlib.collections.FillBetweenPolyCollection
+type _SeriesData = tuple[Timestamps, ResampledValue|tuple[float, ...]]
+type _Data = tuple[Timestamps, ResampledData|Data]
 
-    p_line: matplotlib.lines.Line2D
-    p_range: matplotlib.collections.FillBetweenPolyCollection
+class _AvgSeries:
+    def __init__(self, data: _SeriesData, axes: matplotlib.axes.Axes, label: str, color: str):
+        x, y = data
 
-    rh_line: matplotlib.lines.Line2D
-    rh_range: matplotlib.collections.FillBetweenPolyCollection
-
-    def __init__(self, axes: _Axes, ts: Timestamps, data: ResampledData|Data):
-        if isinstance(data, ResampledData):
-            t, p, rh = data.rh.t.avg, data.p.p.avg, data.rh.rh.avg
+        if isinstance(y, ResampledValue):
+            self.__line, = axes.plot(x, y.avg, label=label, color=color)
+            self.__range = axes.fill_between(x, y.mn, y.mx, facecolor=color, alpha=0.3)
         else:
-            t, p, rh = data.rh.t, data.p.p, data.rh.rh
+            self.__line, = axes.plot(x, y, label=label, color=color)
+            self.__range = axes.fill_between((), (), (), facecolor=color, alpha=0.3)
 
-        t_line, = axes.t.plot(ts, t, label='T, °C', color=_T_COLOR)
-        object.__setattr__(self, "t_line", t_line)
-
-        p_line, = axes.p.plot(ts, p, label='P, mbar', color=_P_COLOR)
-        object.__setattr__(self, "p_line", p_line)
-
-        rh_line, = axes.rh.plot(ts, rh, label='RH, %', color=_RH_COLOR)
-        object.__setattr__(self, "rh_line", rh_line)
-
-        if isinstance(data, ResampledData):
-            t_range = axes.t.fill_between(ts, data.rh.t.mn, data.rh.t.mx,
-                                          facecolors=_T_COLOR, alpha=0.3)
-            p_range = axes.p.fill_between(ts, data.p.p.mn, data.p.p.mx,
-                                          facecolors=_P_COLOR, alpha=0.3)
-            rh_range = axes.rh.fill_between(ts, data.rh.rh.mn, data.rh.rh.mx,
-                                          facecolors=_RH_COLOR, alpha=0.3)
-        else:
-            t_range = axes.t.fill_between((), (), (), facecolors=_T_COLOR, alpha=0.3)
-            p_range = axes.p.fill_between((), (), (), facecolors=_P_COLOR, alpha=0.3)
-            rh_range = axes.rh.fill_between((), (), (), facecolors=_RH_COLOR, alpha=0.3)
-        object.__setattr__(self, "t_range", t_range)
-        object.__setattr__(self, "p_range", p_range)
-        object.__setattr__(self, "rh_range", rh_range)
-
-    def update(self, ts: Timestamps, data: ResampledData|Data, limits: XLimits):
-        """ Set given data to the respective lines and fills """
+    def update(self, data: _SeriesData, limits: XLimits):
+        """ Set the given data to line and fill if possible """
+        x, y = data
         start, end = limits.start, limits.end
 
-        if isinstance(data, ResampledData):
-            self.t_line.set_data(ts, data.rh.t.avg[start:end])
-            self.t_range.set_data(ts, data.rh.t.mn[start:end], data.rh.t.mx[start:end])
-
-            self.p_line.set_data(ts, data.p.p.avg[start:end])
-            self.p_range.set_data(ts, data.p.p.mn[start:end], data.p.p.mx[start:end])
-
-            self.rh_line.set_data(ts, data.rh.rh.avg[start:end])
-            self.rh_range.set_data(ts, data.rh.rh.mn[start:end], data.rh.rh.mx[start:end])
+        if isinstance(y, ResampledValue):
+            self.__line.set_data(x, y.avg[start:end])
+            self.__range.set_data(x, y.mn[start:end], y.mx[start:end])
         else:
-            self.t_line.set_data(ts, data.rh.t[start:end])
-            self.t_range.set_data((), (), ())
+            self.__line.set_data(x, y[start:end])
+            self.__range.set_data((), (), ())
 
-            self.p_line.set_data(ts, data.p.p[start:end])
-            self.p_range.set_data((), (), ())
+    def get_handle(self) -> matplotlib.artist.Artist:
+        """ Return main handle for the series """
+        return self.__line
 
-            self.rh_line.set_data(ts, data.rh.rh[start:end])
-            self.rh_range.set_data((), (), ())
+class _Atmosperic:
+    def __init__(self, axes: _Axes, data: _Data):
+        ts, values = data
+        self.__t = _AvgSeries((ts, values.rh.t), axes.t, 'T, °C', _T_COLOR)
+        self.__p = _AvgSeries((ts, values.p.p), axes.p, 'P, mbar', _P_COLOR)
+        self.__rh = _AvgSeries((ts, values.rh.rh), axes.rh, 'RH, %', _RH_COLOR)
+
+    def update(self, data: _Data, limits: XLimits):
+        """ Set given data to the respective lines and fills """
+        ts, values = data
+        self.__t.update((ts, values.rh.t), limits)
+        self.__p.update((ts, values.p.p), limits)
+        self.__rh.update((ts, values.rh.rh), limits)
+
+    def get_handles(self) -> tuple[matplotlib.artist.Artist, ...]:
+        """ Return main handles for the atmospheric series """
+        return self.__t.get_handle(), self.__p.get_handle(), self.__rh.get_handle()
+
+class _AmbientLight:
+    def __init__(self, axes: _Axes, data: _Data):
+        ts, values = data
+        self.__al = _AvgSeries((ts, values.al.al), axes.al, 'I, lux', _AL_COLOR)
+        self.__ir = _AvgSeries((ts, values.al.ir), axes.c, 'IR, %', _IR_COLOR)
+
+    def update(self, data: _Data, limits: XLimits):
+        """ Set given data to the respective lines and fills """
+        ts, values = data
+        self.__al.update((ts, values.al.al), limits)
+        self.__ir.update((ts, values.al.ir), limits)
+
+    def get_handles(self) -> tuple[matplotlib.artist.Artist, ...]:
+        """ Return main handles for the atmospheric series """
+        return self.__al.get_handle(), self.__ir.get_handle()
 
 def plot(data_set: DataSet):
-    """ Plots a chart using the given dataset """
+    """ Plot a chart using the given dataset """
 
     axes = _Axes()
 
     data = data_set.overview if data_set.overview is not None else data_set.orig
-    atm = _Atmosperic(axes, *data)
+    atm = _Atmosperic(axes, data)
+    al = _AmbientLight(axes, data)
 
-    axes.t.legend(handles=(atm.t_line, atm.p_line, atm.rh_line))
+    axes.t.legend(handles=atm.get_handles() + al.get_handles())
 
-    sel = ScaleSelector(data_set, atm.update)
+    def update(ts: Timestamps, data: ResampledData|Data, limits: XLimits):
+        atm.update((ts, data), limits)
+        al.update((ts, data), limits)
+    sel = ScaleSelector(data_set, update)
     sel.connect(axes.t)
 
     matplotlib.pyplot.show()
