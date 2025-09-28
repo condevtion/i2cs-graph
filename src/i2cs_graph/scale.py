@@ -10,7 +10,9 @@ import matplotlib.axes
 
 from .read import Timestamps, Data, Pressure, RelativeHumidity, AmbientLight
 from .sequencer import span_str, SCALES, Sequencer, skip_seq_item, next_seq_item
-from .color import classify_color
+from .color import classify_color, Colors
+
+BUCKETS = 200
 
 @dataclasses.dataclass(frozen=True)
 class ResampledValue:
@@ -126,7 +128,8 @@ class _ValueBucket:
         """ Check if the bucket is empty """
         return self.__n <= 0
 
-class _ColorBucket:
+class ColorBucket:
+    """ Accumulates normalized colors and summarizes them by finding dominant one """
     def __init__(self):
         self.__c = {}
 
@@ -136,26 +139,27 @@ class _ColorBucket:
             return
 
         k = classify_color(*c)
-        try:
-            r, g, b, n = self.__c[k]
-        except KeyError:
-            r, g, b, n = 0, 0, 0, 0
-
+        r, g, b, n = self.__c.get(k, (0.0, 0.0, 0.0, 0))
         self.__c[k] = (r + c[0], g + c[1], b + c[2], n + 1)
 
     def summarize(self) -> tuple[float, float, float]:
         """ Summarize bucket's content """
-        max_c, max_n = (numpy.nan, numpy.nan, numpy.nan), None
-        for r, g, b, n in self.__c.values():
-            if max_n is None or max_n < n:
-                max_n = n
-                max_c = (r, g, b)
+        if len(self.__c) == 1:
+            for r, g, b, n in self.__c.values():
+                return r/n, g/n, b/n
 
-        if max_n is None:
-            return max_c
+        try:
+            _, (r, g, b, n) = max(
+                    filter(
+                        lambda x: x[0] != Colors.KEY,
+                        self.__c.items()
+                    ),
+                    key=lambda x: x[-1][-1]
+                )
+        except ValueError:
+            return numpy.nan, numpy.nan, numpy.nan
 
-        r, g, b = max_c
-        return r/max_n, g/max_n, b/max_n
+        return r/n, g/n, b/n
 
     def is_empty(self) -> bool:
         """ Check if the bucket is empty """
@@ -186,7 +190,7 @@ class _AmbientLightBucket:
         self.__gain = _ValueBucket()
         self.__al = _ValueBucket()
         self.__ir = _ValueBucket()
-        self.__c = _ColorBucket()
+        self.__c = ColorBucket()
 
     def add(self, gain: float, al: float, ir: float, c: tuple[float, float, float]):
         """ Add the given values of pressure and temperature to the bucket """
@@ -351,7 +355,7 @@ def prescale(data: tuple[Timestamps, Data]) -> DataSet:
     """ Produce a dataset based on the given data which includes original data, suitable downscaled
         variants, and a two point "overview" """
     ts, _ = data
-    if len(ts) < 100:
+    if len(ts) < BUCKETS:
         return DataSet(data)
 
     span = ts[-1] - ts[0]
@@ -365,7 +369,7 @@ def prescale(data: tuple[Timestamps, Data]) -> DataSet:
         bucket = scale/t_avg
         buckets = span/scale
         buckets = int(buckets) + 1 if buckets > int(buckets) else int(buckets)
-        if bucket < 5 or buckets < 100 or seq is None:
+        if bucket < 5 or buckets < BUCKETS or seq is None:
             continue
 
         columns = tuple(zip(*downsample(data, seq)))
@@ -399,7 +403,7 @@ def _find_scale(data_set: DataSet, left: float, right: float) -> \
         tuple[Timestamps, ResampledData|Data]:
     dt = right - left
     for scale, (ts, data) in reversed(data_set.scaled.items()):
-        if len(ts) >= 10 and dt/scale >= 100:
+        if len(ts) >= 10 and dt/scale >= BUCKETS:
             return ts, data
 
     return data_set.orig
@@ -427,9 +431,11 @@ class ScaleSelector: # pylint: disable=too-few-public-methods
         self.__data_set = data_set
         self.__transform = transform
 
-    def connect(self, axes: matplotlib.axes.Axes):
+    def connect(self, axes: matplotlib.axes.Axes, force=True):
         """ Bind the scale selector to given axes """
         axes.callbacks.connect('xlim_changed', self.__xlim_changed)
+        if force:
+            self.__xlim_changed(axes)
 
     def __xlim_changed(self, axes: matplotlib.axes.Axes):
         x1, x2 = axes.get_xlim()

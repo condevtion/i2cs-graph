@@ -496,7 +496,6 @@ class TestTimeSequencers(unittest.TestCase):
             ))
 
         # Whole year
-        self.maxDiff = None
         t, = zip(*gen_seq(53, (20089.0 + 8/24, 168*HOUR)))
         self.assertEqual(tuple(distribute(
                 i2cs_graph.sequencer.make_time_sequence_1w, t, PT, '%Y-%m-%d %z'

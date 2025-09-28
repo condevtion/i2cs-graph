@@ -228,7 +228,6 @@ class TestPrescale(unittest.TestCase):
         """ A data sequence can be downsampled """
         t, y = zip(*gen_seq(8, (20089.0, 4*SECOND), (0.0, 1)))
 
-        self.maxDiff = None
         self.assertEqual(
                 tuple(i2cs_graph.scale.downsample(
                     (t, i2cs_graph.read.Data(
@@ -249,7 +248,7 @@ class TestPrescale(unittest.TestCase):
                         20089.000173611108,
                         3.5, 2.0, 5.0, 3.5, 2.0, 5.0,
                         3.5, 2.0, 5.0, 3.5, 2.0, 5.0,
-                        3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 3.0, 3.0, 3.0,
+                        3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 5.0, 5.0, 5.0,
 
                     ),
                     (
@@ -280,7 +279,7 @@ class TestPrescale(unittest.TestCase):
                 )
             )
 
-        t, y = zip(*gen_seq(10000, (20089.0, SECOND), (0.0, 1)))
+        t, y = zip(*gen_seq(20000, (20089.0, SECOND), (0.0, 1)))
         orig = (t, i2cs_graph.read.Data(
                 i2cs_graph.read.Pressure(y, y),
                 i2cs_graph.read.RelativeHumidity(y, y),
@@ -295,7 +294,7 @@ class TestPrescale(unittest.TestCase):
 
         sc15s = data_set.scaled[15/60/60/24]
         pts = len(sc15s[0])
-        self.assertEqual(pts, round(10000/15) + 1)
+        self.assertEqual(pts, round(20000/15) + 1)
         self.assertEqual(
                 (len(sc15s[1].p.p.avg), len(sc15s[1].p.p.mn), len(sc15s[1].p.p.mx)),
                 (pts, pts, pts)
@@ -326,20 +325,20 @@ class TestPrescale(unittest.TestCase):
             )
 
         sc1m = data_set.scaled[1/60/24]
-        self.assertEqual(len(sc1m[0]), round(10000/60) + 1)
+        self.assertEqual(len(sc1m[0]), round(20000/60) + 1)
 
-        rval = i2cs_graph.scale.ResampledValue((2499.5, 7499.5), (0.0, 5000.0), (4999.0, 9999.0))
+        rval = i2cs_graph.scale.ResampledValue((4999.5, 14999.5), (0.0, 10000.0), (9999.0, 19999.0))
         self.assertEqual(data_set.overview, (
-                (20089.0, 20089.115729166668),
+                (20089.0, 20089.23146990741),
                 i2cs_graph.scale.ResampledData(
                     i2cs_graph.scale.ResampledPressure(rval, rval),
                     i2cs_graph.scale.ResampledRelativeHumidity(rval, rval),
                     i2cs_graph.scale.ResampledAmbientLight(
                         rval, rval, rval,
                         i2cs_graph.scale.ResampledColor(
-                            (0.0, 9999.0),
-                            (0.0, 9999.0),
-                            (0.0, 9999.0)
+                            (0.0, 19999.0),
+                            (0.0, 19999.0),
+                            (0.0, 19999.0)
                         )
                     )
                 )
