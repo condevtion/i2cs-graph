@@ -31,11 +31,19 @@ class ResampledRelativeHumidity:
     t: ResampledValue
 
 @dataclasses.dataclass(frozen=True)
+class ResampledColor:
+    """ Holds color resampled data """
+    r: tuple[float, ...]
+    g: tuple[float, ...]
+    b: tuple[float, ...]
+
+@dataclasses.dataclass(frozen=True)
 class ResampledAmbientLight:
     """ Holds ambient light resampled data """
     gain: ResampledValue
     al: ResampledValue
     ir: ResampledValue
+    c: ResampledColor
 
 @dataclasses.dataclass(frozen=True)
 class ResampledData:
@@ -117,6 +125,27 @@ class _ValueBucket:
         """ Check if the bucket is empty """
         return self.__n <= 0
 
+class _ColorBucket:
+    def __init__(self):
+        self.__r = numpy.nan
+        self.__g = numpy.nan
+        self.__b = numpy.nan
+
+    def add(self, c: tuple[float, float, float]):
+        """ Add the given value to the bucket """
+        if not self.is_empty() or numpy.nan in c:
+            return
+
+        self.__r, self.__g, self.__b = c
+
+    def summarize(self) -> tuple[float, float, float]:
+        """ Summarize bucket's content """
+        return self.__r, self.__g, self.__b
+
+    def is_empty(self) -> bool:
+        """ Check if the bucket is empty """
+        return self.__r is numpy.nan
+
 type _ResampledPressureRow = tuple[float, float, float, float, float, float]
 
 class _PressureBucket:
@@ -134,7 +163,7 @@ class _PressureBucket:
         return self.__p.summarize() + self.__t.summarize()
 
 type _ResampledAmbientLightRow = tuple[
-        float, float, float, float, float, float, float, float, float
+        float, float, float, float, float, float, float, float, float, float, float, float
     ]
 
 class _AmbientLightBucket:
@@ -142,16 +171,22 @@ class _AmbientLightBucket:
         self.__gain = _ValueBucket()
         self.__al = _ValueBucket()
         self.__ir = _ValueBucket()
+        self.__c = _ColorBucket()
 
-    def add(self, gain: float, al: float, ir: float):
+    def add(self, gain: float, al: float, ir: float, c: tuple[float, float, float]):
         """ Add the given values of pressure and temperature to the bucket """
         self.__gain.add(gain)
         self.__al.add(al)
         self.__ir.add(ir)
+        self.__c.add(c)
 
     def summarize(self) -> _ResampledAmbientLightRow:
         """ Summarize bucket's content """
-        return self.__gain.summarize() + self.__al.summarize() + self.__ir.summarize()
+        return \
+            self.__gain.summarize() + \
+            self.__al.summarize() + \
+            self.__ir.summarize() + \
+            self.__c.summarize()
 
 type _ResampledRelativeHumidityRow = tuple[float, float, float, float, float, float]
 
@@ -172,7 +207,7 @@ class _RelativeHumidityBucket:
 type _ResampledDataRow = tuple[
     float, float, float, float, float, float,
     float, float, float, float, float, float,
-    float, float, float, float, float, float, float, float, float
+    float, float, float, float, float, float, float, float, float, float, float, float
 ]
 
 class _Bucket:
@@ -185,7 +220,10 @@ class _Bucket:
         """ Add values of the given data sequence at the given index to the bucket """
         self.__p.add(data.p.p[i], data.p.t[i])
         self.__rh.add(data.rh.rh[i], data.rh.t[i])
-        self.__al.add(data.al.gain[i], data.al.al[i], data.al.ir[i])
+        self.__al.add(
+                data.al.gain[i], data.al.al[i], data.al.ir[i],
+                (data.al.c.r[i], data.al.c.g[i], data.al.c.b[i])
+            )
 
     def summarize(self) -> _ResampledDataRow:
         """ Summarize bucket's content """
@@ -195,7 +233,7 @@ type _ResampledRow = tuple[
     float,
     float, float, float, float, float, float,
     float, float, float, float, float, float,
-    float, float, float, float, float, float, float, float, float
+    float, float, float, float, float, float, float, float, float, float, float, float
 ]
 
 def downsample(tsdata: tuple[Timestamps, Data],
@@ -271,6 +309,11 @@ def _make_ambient_light_overview(al: AmbientLight, m: int) -> ResampledAmbientLi
                 (_min_not_nan(al.ir[:m]), _min_not_nan(al.ir[m:])),
                 (_max_not_nan(al.ir[:m]), _max_not_nan(al.ir[m:]))
             ),
+            ResampledColor(
+                (_min_not_nan(al.c.r), _max_not_nan(al.c.r)),
+                (_min_not_nan(al.c.g), _max_not_nan(al.c.g)),
+                (_min_not_nan(al.c.b), _max_not_nan(al.c.b)),
+            ),
         )
 
 def make_overview(tsdata: tuple[Timestamps, Data]) -> tuple[Timestamps, ResampledData]:
@@ -325,7 +368,8 @@ def prescale(data: tuple[Timestamps, Data]) -> DataSet:
                     ResampledAmbientLight(
                         ResampledValue(*columns[13:16]),
                         ResampledValue(*columns[16:19]),
-                        ResampledValue(*columns[19:]),
+                        ResampledValue(*columns[19:22]),
+                        ResampledColor(*columns[22:]),
                     ),
                 )
             )

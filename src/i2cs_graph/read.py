@@ -11,6 +11,7 @@ import numpy
 import matplotlib.dates
 
 from .error import Error
+from .color import norm_color
 
 def parse_timestamp(s: str, **_) -> float:
     """ Parse the given string as a timestamp """
@@ -61,6 +62,11 @@ def parse_color_value(s: str, desc: str, settings: argparse.Namespace) -> float:
         v = 0.5
     return v/(2**settings.als_resolution - 1)
 
+def parse_infrared_value(s: str, settings: argparse.Namespace) -> float:
+    """ Parse the given string as an infrared color sensor readings and return a normalized
+        to (0-100] range value based on the sensor's resolution """
+    return parse_color_value(s, 'an infrared', settings)*100.
+
 type DataRow = tuple[float, ...]
 
 _PARSERS = (
@@ -71,7 +77,7 @@ _PARSERS = (
     (parse_value, ('a temperature value from relative humidity sensor',)),
     (parse_value, ('a gain value',)),
     (parse_illuminance_value, ()),
-    (parse_color_value, ('an infrared',)),
+    (parse_infrared_value, ()),
     (parse_color_value, ('a red',)),
     (parse_color_value, ('a green',)),
     (parse_color_value, ('a blue',)),
@@ -106,7 +112,9 @@ def parse_header(row: list[str],
 def parse_data(row: list[str],
                settings: argparse.Namespace) -> tuple[typing.Callable, DataRow|None]:
     """ Parse the given row as a data row """
-    return parse_data, tuple(parse(row, settings))
+    data = tuple(parse(row, settings))
+    color = norm_color(data[6], data[8], data[9], data[10])
+    return parse_data, data[:8] + color
 
 def read_csv(r: typing.Iterable[list[str]],
              settings: argparse.Namespace) -> typing.Generator[DataRow, None, None]:

@@ -32,9 +32,9 @@ _DATA_SAMPLE = (
             (7000.0, 15000.0, 23000.0, 47000.0),
             (6000.0, 14000.0, 22000.0, 46000.0),
             i2cs_graph.read.Color(
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18),
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18),
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18)
+                (25.0, 50.0, 75.0, 100.0),
+                (25.0, 50.0, 75.0, 100.0),
+                (25.0, 50.0, 75.0, 100.0)
             )
         )
     )
@@ -56,9 +56,9 @@ _DATA_SAMPLE_PART_NAN = (
             (7000.0, numpy.nan, 23000.0, numpy.nan),
             (6000.0, numpy.nan, 22000.0, numpy.nan),
             i2cs_graph.read.Color(
-                (_MIN_COLOR_18, numpy.nan, _MIN_COLOR_18, numpy.nan),
-                (_MIN_COLOR_18, numpy.nan, _MIN_COLOR_18, numpy.nan),
-                (_MIN_COLOR_18, numpy.nan, _MIN_COLOR_18, numpy.nan)
+                (25, numpy.nan, 75, numpy.nan),
+                (25, numpy.nan, 75, numpy.nan),
+                (25, numpy.nan, 75, numpy.nan)
             )
         )
     )
@@ -150,6 +150,11 @@ class TestPrescale(unittest.TestCase):
                             i2cs_graph.scale.ResampledValue(
                                 (10000.0, 34000.0), (6000.0, 22000.0), (14000.0, 46000.0),
                             ),
+                            i2cs_graph.scale.ResampledColor(
+                                (25.0, 100.0),
+                                (25.0, 100.0),
+                                (25.0, 100.0),
+                            ),
                         ),
                     )
                 )
@@ -186,6 +191,11 @@ class TestPrescale(unittest.TestCase):
                             i2cs_graph.scale.ResampledValue(
                                 (6000.0, 22000.0), (6000.0, 22000.0), (6000.0, 22000.0),
                             ),
+                            i2cs_graph.scale.ResampledColor(
+                                (25.0, 75.0),
+                                (25.0, 75.0),
+                                (25.0, 75.0),
+                            ),
                         ),
                     )
                 )
@@ -203,7 +213,12 @@ class TestPrescale(unittest.TestCase):
                             _RESAMPLED_NANS, _RESAMPLED_NANS
                         ),
                         i2cs_graph.scale.ResampledAmbientLight(
-                            _RESAMPLED_NANS, _RESAMPLED_NANS, _RESAMPLED_NANS
+                            _RESAMPLED_NANS, _RESAMPLED_NANS, _RESAMPLED_NANS,
+                            i2cs_graph.scale.ResampledColor(
+                                (numpy.nan, numpy.nan),
+                                (numpy.nan, numpy.nan),
+                                (numpy.nan, numpy.nan),
+                            )
                         ),
                     )
                 )
@@ -212,6 +227,8 @@ class TestPrescale(unittest.TestCase):
     def test_downsample(self):
         """ A data sequence can be downsampled """
         t, y = zip(*gen_seq(8, (20089.0, 4*SECOND), (0.0, 1)))
+
+        self.maxDiff = None
         self.assertEqual(
                 tuple(i2cs_graph.scale.downsample(
                     (t, i2cs_graph.read.Data(
@@ -226,20 +243,20 @@ class TestPrescale(unittest.TestCase):
                         20089.0,
                         0.5, 0.0, 1.0, 0.5, 0.0, 1.0,
                         0.5, 0.0, 1.0, 0.5, 0.0, 1.0,
-                        0.5, 0.0, 1.0, 0.5, 0.0, 1.0, 0.5, 0.0, 1.0
+                        0.5, 0.0, 1.0, 0.5, 0.0, 1.0, 0.5, 0.0, 1.0, 0.0, 0.0, 0.0,
                     ),
                     (
                         20089.000173611108,
                         3.5, 2.0, 5.0, 3.5, 2.0, 5.0,
                         3.5, 2.0, 5.0, 3.5, 2.0, 5.0,
-                        3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 3.5, 2.0, 5.0,
+                        3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 3.5, 2.0, 5.0, 2.0, 2.0, 2.0,
 
                     ),
                     (
                         20089.000347222223,
                         6.5, 6.0, 7.0, 6.5, 6.0, 7.0,
                         6.5, 6.0, 7.0, 6.5, 6.0, 7.0,
-                        6.5, 6.0, 7.0, 6.5, 6.0, 7.0, 6.5, 6.0, 7.0,
+                        6.5, 6.0, 7.0, 6.5, 6.0, 7.0, 6.5, 6.0, 7.0, 6.0, 6.0, 6.0,
                     ),
                 )
             )
@@ -274,7 +291,6 @@ class TestPrescale(unittest.TestCase):
         self.assertIsInstance(data_set, i2cs_graph.scale.DataSet)
         self.assertEqual(data_set.orig, orig)
 
-        self.maxDiff = None
         self.assertEqual(tuple(data_set.scaled.keys()), (15/60/60/24, 1/60/24))
 
         sc15s = data_set.scaled[15/60/60/24]
@@ -318,7 +334,14 @@ class TestPrescale(unittest.TestCase):
                 i2cs_graph.scale.ResampledData(
                     i2cs_graph.scale.ResampledPressure(rval, rval),
                     i2cs_graph.scale.ResampledRelativeHumidity(rval, rval),
-                    i2cs_graph.scale.ResampledAmbientLight(rval, rval, rval)
+                    i2cs_graph.scale.ResampledAmbientLight(
+                        rval, rval, rval,
+                        i2cs_graph.scale.ResampledColor(
+                            (0.0, 9999.0),
+                            (0.0, 9999.0),
+                            (0.0, 9999.0)
+                        )
+                    )
                 )
             ))
 

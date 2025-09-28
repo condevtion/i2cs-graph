@@ -25,11 +25,11 @@ _DATA_SAMPLE = (
         i2cs_graph.read.AmbientLight(
             (18.0, 18.0, 18.0),
             (0.015, 0.015, 0.015),
-            (2*_MIN_COLOR_18, 2*_MIN_COLOR_18, 2*_MIN_COLOR_18),
+            (2*_MIN_COLOR_18*100, 2*_MIN_COLOR_18*100, 2*_MIN_COLOR_18*100),
             i2cs_graph.read.Color(
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18),
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18),
-                (_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18)
+                (0.14843257104479432, 0.14843257104479432, 0.14843257104479432),
+                (0.06661827457312067, 0.06661827457312067, 0.06661827457312067),
+                (0.2028397565922921, 0.2028397565922921, 0.2028397565922921)
             )
         )
     )
@@ -44,7 +44,7 @@ _SAMPLE_DATA_ROW = (
     20344.0,
     1000.0, 0.0,
     50.0, 0.0,
-    18.0, 0.015, 2*_MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18,
+    18.0, 0.015, 2*_MIN_COLOR_18*100, _MIN_COLOR_18, _MIN_COLOR_18, _MIN_COLOR_18,
 )
 
 class TestRead(unittest.TestCase):

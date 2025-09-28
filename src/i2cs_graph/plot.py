@@ -70,6 +70,9 @@ _P_COLOR = 'tab:purple'
 _RH_COLOR = 'tab:olive'
 _AL_COLOR = 'tab:cyan'
 _IR_COLOR = 'tab:gray'
+_R_COLOR = 'tab:red'
+_G_COLOR = 'tab:green'
+_B_COLOR = 'tab:blue'
 
 type _SeriesData = tuple[Timestamps, ResampledValue|tuple[float, ...]]
 type _Data = tuple[Timestamps, ResampledData|Data]
@@ -79,11 +82,15 @@ class _AvgSeries:
         x, y = data
 
         if isinstance(y, ResampledValue):
-            self.__line, = axes.plot(x, y.avg, label=label, color=color)
+            self.__line, = self._plotter(axes)(x, y.avg, label=label, color=color)
             self.__range = axes.fill_between(x, y.mn, y.mx, facecolor=color, alpha=0.3)
         else:
-            self.__line, = axes.plot(x, y, label=label, color=color)
+            self.__line, = self._plotter(axes)(x, y, label=label, color=color)
             self.__range = axes.fill_between((), (), (), facecolor=color, alpha=0.3)
+
+    @staticmethod
+    def _plotter(axes: matplotlib.axes.Axes):
+        return axes.plot
 
     def update(self, data: _SeriesData, limits: XLimits):
         """ Set the given data to line and fill if possible """
@@ -100,6 +107,11 @@ class _AvgSeries:
     def get_handle(self) -> matplotlib.artist.Artist:
         """ Return main handle for the series """
         return self.__line
+
+class _AvgLogSeries(_AvgSeries):
+    @staticmethod
+    def _plotter(axes: matplotlib.axes.Axes):
+        return axes.semilogy
 
 class _Atmosperic:
     def __init__(self, axes: _Axes, data: _Data):
@@ -122,8 +134,11 @@ class _Atmosperic:
 class _AmbientLight:
     def __init__(self, axes: _Axes, data: _Data):
         ts, values = data
-        self.__al = _AvgSeries((ts, values.al.al), axes.al, 'I, lux', _AL_COLOR)
+        self.__al = _AvgLogSeries((ts, values.al.al), axes.al, 'I, lux', _AL_COLOR)
         self.__ir = _AvgSeries((ts, values.al.ir), axes.c, 'IR, %', _IR_COLOR)
+        self.__r, = axes.c.plot(ts, values.al.c.r, label='R, %', color=_R_COLOR)
+        self.__g, = axes.c.plot(ts, values.al.c.g, label='G, %', color=_G_COLOR)
+        self.__b, = axes.c.plot(ts, values.al.c.b, label='B, %', color=_B_COLOR)
 
     def update(self, data: _Data, limits: XLimits):
         """ Set given data to the respective lines and fills """
@@ -131,9 +146,14 @@ class _AmbientLight:
         self.__al.update((ts, values.al.al), limits)
         self.__ir.update((ts, values.al.ir), limits)
 
+        start, end = limits.start, limits.end
+        self.__r.set_data(ts, values.al.c.r[start:end])
+        self.__g.set_data(ts, values.al.c.g[start:end])
+        self.__b.set_data(ts, values.al.c.b[start:end])
+
     def get_handles(self) -> tuple[matplotlib.artist.Artist, ...]:
         """ Return main handles for the atmospheric series """
-        return self.__al.get_handle(), self.__ir.get_handle()
+        return self.__al.get_handle(), self.__ir.get_handle(), self.__r, self.__g, self.__b
 
 def plot(data_set: DataSet):
     """ Plot a chart using the given dataset """
