@@ -10,6 +10,7 @@ import matplotlib.axes
 
 from .read import Timestamps, Data, Pressure, RelativeHumidity, AmbientLight
 from .sequencer import span_str, SCALES, Sequencer, skip_seq_item, next_seq_item
+from .color import classify_color
 
 @dataclasses.dataclass(frozen=True)
 class ResampledValue:
@@ -127,24 +128,38 @@ class _ValueBucket:
 
 class _ColorBucket:
     def __init__(self):
-        self.__r = numpy.nan
-        self.__g = numpy.nan
-        self.__b = numpy.nan
+        self.__c = {}
 
     def add(self, c: tuple[float, float, float]):
         """ Add the given value to the bucket """
-        if not self.is_empty() or numpy.nan in c:
+        if numpy.nan in c:
             return
 
-        self.__r, self.__g, self.__b = c
+        k = classify_color(*c)
+        try:
+            r, g, b, n = self.__c[k]
+        except KeyError:
+            r, g, b, n = 0, 0, 0, 0
+
+        self.__c[k] = (r + c[0], g + c[1], b + c[2], n + 1)
 
     def summarize(self) -> tuple[float, float, float]:
         """ Summarize bucket's content """
-        return self.__r, self.__g, self.__b
+        max_c, max_n = (numpy.nan, numpy.nan, numpy.nan), None
+        for r, g, b, n in self.__c.values():
+            if max_n is None or max_n < n:
+                max_n = n
+                max_c = (r, g, b)
+
+        if max_n is None:
+            return max_c
+
+        r, g, b = max_c
+        return r/max_n, g/max_n, b/max_n
 
     def is_empty(self) -> bool:
         """ Check if the bucket is empty """
-        return self.__r is numpy.nan
+        return not self.__c
 
 type _ResampledPressureRow = tuple[float, float, float, float, float, float]
 

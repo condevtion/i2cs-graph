@@ -1,4 +1,6 @@
 """ The submodule gathers color processing calculations """
+import enum
+import colorsys
 
 import numpy
 
@@ -63,3 +65,36 @@ def norm_color(al: float, r: float, g: float, b: float) -> tuple[float, float, f
 def repr_color(r: float, g: float, b: float) -> str:
     """ Represents RGB color as a hex string """
     return f'#{int(r*2.55):02x}{int(g*2.55):02x}{int(b*2.55):02x}'
+
+class Colors(enum.Enum):
+    """ The enum defines a set of colors for RGB values grouping """
+    KEY = object()
+    WHITE = object()
+    RED = object()
+    YELLOW = object()
+    GREEN = object()
+    CYAN = object()
+    BLUE = object()
+    MAGENTA = object()
+
+def classify_color(r: float, g: float, b: float) -> Colors:
+    """ Assigns one of the Colors value to the given RGB value """
+    h, l, _ = colorsys.rgb_to_hls(r/100., g/100., b/100.)
+    if l >= 0.95:
+        c = Colors.WHITE
+    elif l < 0.05:
+        c = Colors.KEY
+    elif 1./12 < h <= 1./4:
+        c = Colors.YELLOW
+    elif 1./4 < h <= 5./12:
+        c = Colors.GREEN
+    elif 5./12 < h <= 7./12:
+        c = Colors.CYAN
+    elif 7./12 < h <= 3./4:
+        c = Colors.BLUE
+    elif 3./4 < h <= 11./12:
+        c = Colors.MAGENTA
+    else:
+        c = Colors.RED
+
+    return c

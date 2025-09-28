@@ -113,7 +113,7 @@ class _AvgLogSeries(_AvgSeries):
     def _plotter(axes: matplotlib.axes.Axes):
         return axes.semilogy
 
-class _Atmosperic:
+class _Atmospheric:
     def __init__(self, axes: _Axes, data: _Data):
         ts, values = data
         self.__t = _AvgSeries((ts, values.rh.t), axes.t, 'T, °C', _T_COLOR)
@@ -161,7 +161,7 @@ def plot(data_set: DataSet):
     axes = _Axes()
 
     data = data_set.overview if data_set.overview is not None else data_set.orig
-    atm = _Atmosperic(axes, data)
+    atm = _Atmospheric(axes, data)
     al = _AmbientLight(axes, data)
 
     axes.t.legend(handles=atm.get_handles() + al.get_handles())
