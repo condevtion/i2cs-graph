@@ -7,7 +7,8 @@ import time
 from .error import Error
 from .read import read, ALS_SENSITIVITY, ALS_DEFAULT_RESOLUTION
 from .scale import prescale
-from .plot import plot
+from .combined import plot_combined
+from .split import plot_split
 
 def make_args_parser() -> argparse.ArgumentParser:
     """ Creates an argument parser """
@@ -15,6 +16,8 @@ def make_args_parser() -> argparse.ArgumentParser:
     parser.add_argument('data', type=str, nargs=1,
                         help='file with CSV formatted data from i2cs-test script',
                         metavar='PATH')
+    parser.add_argument('--combined', action='store_true', default=False,
+                        help='plot combined chart (default: split)')
     parser.add_argument('--als-resolution', type=int,
                         choices=ALS_SENSITIVITY.keys(), default=ALS_DEFAULT_RESOLUTION,
                         help= 'resolution configured for ambient light sensor during measurements '
@@ -31,7 +34,11 @@ def main() -> int:
         data = read(args.data[0], args)
         print(f'Got {len(data[0])} data points in {time.monotonic() - start:.1f}s')
 
-        plot(prescale(data))
+        data_set = prescale(data)
+        if args.combined:
+            plot_combined(data_set)
+        else:
+            plot_split(data_set)
     except Error as e:
         print(f'{e}. Exiting...', file=sys.stderr)
         return 1
