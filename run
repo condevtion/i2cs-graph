@@ -1,0 +1,16 @@
+#!/bin/bash
+
+VENV=".venv/bin"
+if [ "$OSTYPE" = "msys" ] || [ "$OSTYPE" = "cygwin" ] || [ "$OSTYPE" = "win32" ]; then
+    VENV=".venv/Scripts"
+fi
+PYTHON="$VENV/python"
+PYTHONPATH="src"
+
+echo "Running CLI..."
+if [ ! -d "$VENV" ]; then
+    echo "$VENV doesn't exist. Exiting..."
+    exit 1
+fi
+
+PYTHONPATH="$PYTHONPATH" "$PYTHON" -c "import sys; from i2cs_graph.cli import main; sys.exit(main())" "$@"
